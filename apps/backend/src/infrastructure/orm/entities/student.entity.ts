@@ -2,11 +2,13 @@ import {
   Column,
   CreateDateColumn,
   Entity,
+  OneToMany,
   OneToOne,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
 import { StudentProfileEntity } from './student-profile.entity';
+import { LearningGoalEntity } from './learning-goal.entity';
 
 @Entity('students')
 export class StudentEntity {
@@ -30,4 +32,7 @@ export class StudentEntity {
 
   @OneToOne(() => StudentProfileEntity, (profile) => profile.student)
   profile: StudentProfileEntity;
+
+  @OneToMany(() => LearningGoalEntity, (goal) => goal.student)
+  goals: LearningGoalEntity[];
 }
