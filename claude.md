@@ -6,7 +6,7 @@ Read this entire file before writing any code. This is the architectural contrac
 
 ## What We Are Building
 
-A deeply personalised AI-powered agentic tutor system. Students first complete a one-time onboarding that captures who they are — learning style, pace, prior knowledge level, interests, and personal context (e.g. a football fan). This profile is permanent and applies to everything they learn.
+A deeply personalised AI-powered agentic tutor system. Students first complete a one-time onboarding that captures who they are — learning style, pace, education level, language proficiency, interests, and personal context (e.g. a football fan). This profile is permanent and applies to everything they learn.
 
 After onboarding, students create **Learning Goals**. A learning goal is a topic the student wants to learn, with an optional source document upload for RAG grounding. Each learning goal gets its own independently generated adaptive curriculum, content system, quiz history, and progress tracker — all personalised using the student's profile. A student can have multiple active learning goals at the same time.
 
@@ -101,7 +101,7 @@ This is the BFF (Backend for Frontend). The frontend only ever talks to this.
 
 Responsibilities:
 - All REST API endpoints
-- Session-based authentication — student identity is always resolved from the session, never from URL params
+- Stateless JWT authentication with RSA signing — student identity is resolved from the JWT in the Authorization header, never from URL params
 - PostgreSQL via TypeORM (all DB reads and writes happen here)
 - Redis cache + BullMQ job queues for async content generation
 - File uploads (source documents for learning goals) and media file serving
@@ -219,23 +219,22 @@ The system works without an uploaded document — this is fully optional.
 
 ## API Surface (NestJS — high level)
 
-The student identity is **always resolved from the authenticated session** on the backend. Student IDs never appear in URLs. All endpoints are implicitly scoped to the logged-in student.
+The student identity is **always resolved from the JWT in the Authorization header** on the backend. Student IDs never appear in URLs. All endpoints are implicitly scoped to the logged-in student.
 
 ```
 # Auth
 POST   /auth/register              register new student account
-POST   /auth/login                 login, establish session
-POST   /auth/logout                destroy session
-GET    /auth/me                    get current session student
+POST   /auth/login                 login, return JWT token
+GET    /auth/me                    get current user from JWT
 
 # Onboarding (one-time, separate from learning goals)
-POST   /students/onboard           save student profile (learning style, pace, interests, etc.)
+POST   /students/onboard           save student profile (learning style, pace, education level, language proficiency, interests, personal context)
 GET    /students/profile           get current student's profile
 PATCH  /students/profile           update profile
 
 # Learning Goals (students can have many)
 GET    /goals                      list all learning goals for current student
-POST   /goals                      create a new learning goal (topic + optional source doc upload)
+POST   /goals                      create a new learning goal (topic, motivation, preferred explanation style, prior knowledge + optional source doc upload)
 GET    /goals/:goalId              get a specific learning goal + its active outline
 DELETE /goals/:goalId              remove a learning goal
 
@@ -258,6 +257,25 @@ GET    /goals/:goalId/progress     KT states + completion summary for this goal
 # Source documents (attached to a learning goal)
 POST   /goals/:goalId/documents    upload source document, trigger embedding
 ```
+
+---
+
+## Data Model (snake_case everywhere — entity properties and DB columns)
+
+### StudentProfile fields (profile-level, applies to all goals)
+- `learning_style` — "visual" | "auditory" | "reading" | "kinesthetic"
+- `pace` — "slow" | "moderate" | "fast"
+- `education_level` — "high_school" | "undergraduate" | "postgraduate" | "professional"
+- `language_proficiency` — "native" | "fluent" | "intermediate" | "basic"
+- `interests` — text array, e.g. ["football", "music", "cooking"]
+- `personal_context` — nullable free text about the student
+
+### LearningGoal fields (goal-level, varies per topic)
+- `motivation` — "career" | "academic" | "curiosity" | "exam_prep"
+- `preferred_explanation_style` — "eli5" | "conceptual" | "technical" | "example_heavy"
+- `prior_knowledge` — nullable free text, e.g. "I already know basic algebra"
+
+These goal-level fields are injected into the StudentContext alongside the profile fields at generation time, so the LLM prompt reflects both who the student is and why they're learning this specific topic.
 
 ---
 
@@ -315,9 +333,9 @@ PORT=3000
 | Page | Route | Purpose |
 |---|---|---|
 | Register / Login | `/auth` | Account creation and login |
-| Onboarding | `/onboard` | One-time profile setup: learning style, pace, interests, prior knowledge. Redirects to dashboard on complete |
+| Onboarding | `/onboard` | One-time profile setup: learning style, pace, education level, language proficiency, interests, personal context. Redirects to dashboard on complete |
 | Dashboard | `/` | Lists all learning goals. Button to create a new goal |
-| New Learning Goal | `/goals/new` | Enter topic, optional source doc upload. Triggers outline generation |
+| New Learning Goal | `/goals/new` | Enter topic, motivation, preferred explanation style, prior knowledge, optional source doc upload. Triggers outline generation |
 | Outline Viewer | `/goals/:goalId` | Tree view of curriculum for this goal. Node status indicators. Version switcher |
 | Content Player | `/learn/:nodeId` | Tabs: Text, Audio, Video. Polls until content ready. Quiz button at bottom |
 | Quiz | `/quiz/:nodeId` | MCQ one at a time. Score summary. Triggers KT update |
@@ -333,9 +351,9 @@ Build strictly in this sequence — each phase unblocks the next:
 
 1. Infrastructure — docker-compose files, env files, folder scaffolding with empty READMEs
 2. TypeORM entities and DB connection for all core tables
-3. NestJS skeleton — all modules scaffolded, TypeORM wired, session auth wired, no business logic yet
+3. NestJS skeleton — all modules scaffolded, TypeORM wired, JWT auth wired, no business logic yet
 4. FastAPI skeleton — stub endpoints returning mock JSON so NestJS can wire up immediately
-5. Auth module — register, login, logout, session middleware, `getCurrentStudent()` guard used by all protected routes
+5. Auth module — register, login, JWT guard, `@CurrentUser()` decorator used by all protected routes
 6. Onboarding module — one-time student profile creation and retrieval
 7. Learning Goals module — CRUD for goals, source document upload per goal
 8. LLM Provider adapter — abstract class, Ollama + OpenAI implementations, config-driven
@@ -351,7 +369,7 @@ Build strictly in this sequence — each phase unblocks the next:
 18. TutorPipeline orchestrator — wires all processors together, exposes clean methods to FastAPI endpoints
 19. NestJS business logic — wire all controllers to real services and AI HTTP client
 20. BullMQ queues — async content generation workers
-21. Frontend — all pages connected to NestJS API, session-aware routing
+21. Frontend — all pages connected to NestJS API, JWT-aware routing
 22. End-to-end integration — run the full student journey, fix wiring bugs
 23. Seed script — pre-generated demo student + learning goal so examiner sees a working product immediately
 24. Full Docker build — docker compose up --build running cleanly
@@ -360,7 +378,7 @@ Build strictly in this sequence — each phase unblocks the next:
 
 ## Important Constraints
 
-- **Session-based auth**: NestJS acts as a BFF — student identity is always resolved server-side from the session. Never pass studentId in URL params or request bodies for protected routes. Use a `getCurrentStudent()` guard/decorator to extract the student from session context
+- **Stateless JWT auth with RSA**: NestJS acts as a BFF — student identity is resolved from the JWT in the Authorization header (signed with RSA private key, verified with public key). Never pass studentId in URL params or request bodies for protected routes. Use a `@CurrentUser()` decorator to extract the student from the JWT
 - **Onboarding is separate from learning goals**: a student completes onboarding once to build their profile. They then create learning goals independently. The profile feeds into every goal but is managed separately
 - **Learning goals are the unit of learning**: each goal has its own outline, content, quizzes, KT states, and progress. One student, many goals, fully isolated per goal
 - **Pipeline, not agents**: the Python service uses plain processor classes for all deterministic steps. LangGraph is used only for the AdaptationGraph — the one component with genuine conditional looping. Do not reach for LangGraph elsewhere
