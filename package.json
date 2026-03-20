@@ -1,0 +1,16 @@
+{
+  "name": "agentic-tutor",
+  "version": "0.1.0",
+  "private": true,
+  "description": "AI-powered personalised agentic tutor system",
+  "scripts": {
+    "dev:backend": "cd apps/backend && pnpm start:dev",
+    "dev:frontend": "cd apps/frontend && pnpm dev",
+    "dev:ai": "cd apps/ai-service && source .venv/bin/activate && uvicorn main:app --reload --port 8000",
+    "dev:infra": "docker compose -f docker-compose.dev.yml up",
+    "docker:dev": "docker compose up --build",
+    "docker:dev:down": "docker compose down",
+    "docker:prod": "docker compose -f docker-compose.prod.yml up --build",
+    "docker:down": "docker compose down"
+  }
+}
