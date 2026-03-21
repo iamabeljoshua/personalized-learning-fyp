@@ -26,6 +26,30 @@ services:
       timeout: 5s
       retries: 5
 
+  chatterbox-tts:
+    image: travisvn/chatterbox-tts-api:cpu
+    container_name: chatterbox-tts
+    ports:
+      - "4123:4123"
+    environment:
+      - PORT=4123
+      - HOST=0.0.0.0
+      - DEVICE=cpu
+      - EXAGGERATION=0.5
+      - CFG_WEIGHT=0.5
+      - TEMPERATURE=0.8
+      - MAX_TOTAL_LENGTH=3000
+      - MODEL_CACHE_DIR=/cache
+    volumes:
+      - chatterbox_models:/cache
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4123/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 300s
+
   manim:
     image: manimcommunity/manim:stable
     container_name: manim
@@ -80,3 +104,4 @@ services:
 
 volumes:
   pgdata:
+  chatterbox_models:

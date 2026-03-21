@@ -1,8 +1,10 @@
 from fastapi import APIRouter
 from providers.llm import get_llm_provider
 from providers.image import get_image_provider
+from providers.tts import get_tts_provider
 from processors.curriculum import CurriculumProcessor
 from processors.content import ContentProcessor
+from processors.audio import AudioProcessor
 from processors.assessment import AssessmentProcessor
 from processors.knowledge_trace import KnowledgeTraceProcessor
 from schemas.outline import GenerateOutlineRequest, GenerateOutlineResponse
@@ -47,8 +49,10 @@ async def generate_content_text(request: GenerateTextRequest):
 
 @router.post("/content/audio", response_model=GenerateAudioResponse)
 async def generate_content_audio(request: GenerateAudioRequest):
-    # TTS implementation coming later
-    return GenerateAudioResponse(audio_url=None)
+    llm = get_llm_provider()
+    tts = get_tts_provider()
+    processor = AudioProcessor(llm, tts)
+    return await processor.generate_audio(request)
 
 
 @router.post("/content/video", response_model=GenerateVideoResponse)

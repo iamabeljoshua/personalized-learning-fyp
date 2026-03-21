@@ -14,8 +14,12 @@ class Settings:
     # Image generation (optional)
     IMAGE_PROVIDER: str = os.getenv("IMAGE_PROVIDER", "")  # "openai" | "" (disabled)
     IMAGE_API_KEY: str = os.getenv("IMAGE_API_KEY", "")
-    IMAGE_MODEL: str = os.getenv("IMAGE_MODEL", "")  # e.g. "dall-e-3"
-    IMAGE_BASE_URL: str = os.getenv("IMAGE_BASE_URL", "")  # custom base URL for OpenAI-compatible APIs
+    IMAGE_MODEL: str = os.getenv("IMAGE_MODEL", "")
+    IMAGE_BASE_URL: str = os.getenv("IMAGE_BASE_URL", "")
+
+    # TTS
+    TTS_URL: str = os.getenv("TTS_URL", "http://localhost:4123")
+    TTS_EXAGGERATION: float = float(os.getenv("TTS_EXAGGERATION", "0.5"))
 
     # Storage
     MEDIA_STORAGE_PATH: str = os.getenv("MEDIA_STORAGE_PATH", "./media")
