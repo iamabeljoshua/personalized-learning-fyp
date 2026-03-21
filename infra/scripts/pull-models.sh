@@ -1,12 +1,17 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-OLLAMA_HOST="${OLLAMA_URL:-http://localhost:11434}"
+# Pull LLM models into Ollama (running natively on host)
+# Usage: ./infra/scripts/pull-models.sh [model_name]
+# Default model: llama3.2
 
-echo "Pulling llama3.2 model..."
-curl -s "$OLLAMA_HOST/api/pull" -d '{"name": "llama3.2"}' | while read -r line; do
-  status=$(echo "$line" | grep -o '"status":"[^"]*"' | head -1)
-  [ -n "$status" ] && echo "$status"
-done
+MODEL="${1:-llama3.2}"
 
-echo "Model pull complete."
+if ! command -v ollama &>/dev/null; then
+  echo "Ollama is not installed. Install from https://ollama.com"
+  exit 1
+fi
+
+echo "Pulling $MODEL..."
+ollama pull "$MODEL"
+echo "Done."

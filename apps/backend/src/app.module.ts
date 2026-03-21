@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { BullModule } from '@nestjs/bullmq';
 import {
   AppConfiguration,
   AppConfigurationRegister,
@@ -10,6 +11,7 @@ import { HealthModule } from './api/health/health.module';
 import { AuthModule } from './api/auth/auth.module';
 import { StudentsModule } from './api/students/students.module';
 import { GoalsModule } from './api/goals/goals.module';
+import { ContentModule } from './api/content/content.module';
 
 @Module({
   imports: [
@@ -24,10 +26,24 @@ import { GoalsModule } from './api/goals/goals.module';
       },
       inject: [ConfigService],
     }),
+    BullModule.forRootAsync({
+      imports: [ConfigModule],
+      useFactory: (configService: ConfigService) => {
+        const config = AppConfiguration.fromService(configService);
+        return {
+          connection: {
+            host: config.redis.host,
+            port: config.redis.port,
+          },
+        };
+      },
+      inject: [ConfigService],
+    }),
     HealthModule,
     AuthModule,
     StudentsModule,
     GoalsModule,
+    ContentModule,
   ],
 })
 export class AppModule {}

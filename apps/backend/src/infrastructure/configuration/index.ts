@@ -45,6 +45,10 @@ export class AiServiceConfig {
   @IsString()
   @IsNotEmpty()
   url: string;
+
+  @IsString()
+  @IsNotEmpty()
+  apiKey: string;
 }
 
 export class JwtConfig {
@@ -114,6 +118,7 @@ export const loadEnvironmentVariables = (): AppConfiguration => ({
   },
   aiService: {
     url: env('AI_SERVICE_URL'),
+    apiKey: env('INTERNAL_API_KEY'),
   },
   jwt: {
     privateKey: env('JWT_PRIVATE_KEY'),

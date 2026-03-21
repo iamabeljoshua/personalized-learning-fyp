@@ -23,6 +23,7 @@ import {
 import { GoalsService } from './goals.service';
 import { CreateGoalDto } from './goals.request.dto';
 import { GoalResponseDto, GoalListResponseDto } from './goals.response.dto';
+import { OutlineResponseDto } from './outline.response.dto';
 import { AuthenticationGuard } from '../auth/authentication.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import type { SessionUser } from '../../common/decorators/current-user.decorator';
@@ -55,7 +56,7 @@ export class GoalsController {
   @ApiBadRequestResponse({ description: 'Validation failed' })
   @ApiUnauthorizedResponse({ description: 'Invalid or missing token' })
   async create(@CurrentUser() user: SessionUser, @Body() dto: CreateGoalDto) {
-    const goal = await this.goalsService.create(user.sub, dto);
+    const goal = await this.goalsService.create({ studentId: user.sub, dto });
     return GoalResponseDto.fromEntity(goal);
   }
 
@@ -74,6 +75,23 @@ export class GoalsController {
   ) {
     const goal = await this.goalsService.findOne({studentId: user.sub, goalId});
     return GoalResponseDto.fromEntity(goal);
+  }
+
+  /** Get the active outline for a learning goal */
+  @Get(':goalId/outline')
+  @ApiOkResponse({
+    type: OutlineResponseDto,
+    description: 'Active outline with nodes',
+  })
+  @ApiNotFoundResponse({ description: 'Goal or outline not found' })
+  @ApiForbiddenResponse({ description: 'Goal belongs to another student' })
+  @ApiUnauthorizedResponse({ description: 'Invalid or missing token' })
+  async getOutline(
+    @CurrentUser() user: SessionUser,
+    @Param('goalId') goalId: string,
+  ) {
+    const outline = await this.goalsService.getOutline({ studentId: user.sub, goalId });
+    return OutlineResponseDto.fromEntity(outline);
   }
 
   /** Delete a learning goal */

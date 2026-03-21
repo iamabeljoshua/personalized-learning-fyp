@@ -11,6 +11,8 @@
     "docker:dev": "docker compose up --build",
     "docker:dev:down": "docker compose down",
     "docker:prod": "docker compose -f docker-compose.prod.yml up --build",
-    "docker:down": "docker compose down"
+    "docker:down": "docker compose down",
+    "setup": "bash infra/scripts/setup.sh",
+    "pull-models": "bash infra/scripts/pull-models.sh"
   }
 }
