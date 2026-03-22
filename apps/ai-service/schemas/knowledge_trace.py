@@ -16,3 +16,13 @@ class KnowledgeTraceUpdateRequest(BaseModel):
 class KnowledgeTraceUpdateResponse(BaseModel):
     updated_state: KnowledgeState
     needs_adaptation: bool
+
+
+class KnowledgeTraceBatchRequest(BaseModel):
+    current_state: KnowledgeState
+    answers: list[bool]
+
+
+class KnowledgeTraceBatchResponse(BaseModel):
+    updated_state: KnowledgeState
+    needs_adaptation: bool

@@ -27,7 +27,13 @@ export class ContentItemEntity {
   video_url: string | null;
 
   @Column({ default: 'pending' })
-  status: string;
+  text_status: string;
+
+  @Column({ default: 'pending' })
+  audio_status: string;
+
+  @Column({ default: 'pending' })
+  video_status: string;
 
   @CreateDateColumn()
   created_at: Date;

@@ -9,9 +9,13 @@ import { Queue } from 'bullmq';
 import { GoalRepository } from '../../infrastructure/orm/repositories/goal.repository';
 import { StudentRepository } from '../../infrastructure/orm/repositories/student.repository';
 import { OutlineRepository } from '../../infrastructure/orm/repositories/outline.repository';
+import { ContentRepository } from '../../infrastructure/orm/repositories/content.repository';
+import { KnowledgeTraceRepository } from '../../infrastructure/orm/repositories/knowledge-trace.repository';
+import { QuizRepository } from '../../infrastructure/orm/repositories/quiz.repository';
 import { AiClientService } from '../../services/ai-client/ai-client.service';
 import { CreateGoalDto } from './goals.request.dto';
 import { buildStudentContext } from './goals.util';
+import { ProgressResponseDto } from './progress.response.dto';
 import { CONTENT_GENERATION_QUEUE } from '../content/content.constants';
 import { ContentGenerationJobData } from '../content/content-generation.processor';
 
@@ -21,6 +25,9 @@ export class GoalsService {
     private readonly goalRepository: GoalRepository,
     private readonly studentRepository: StudentRepository,
     private readonly outlineRepository: OutlineRepository,
+    private readonly contentRepository: ContentRepository,
+    private readonly ktRepository: KnowledgeTraceRepository,
+    private readonly quizRepository: QuizRepository,
     private readonly aiClient: AiClientService,
     @InjectQueue(CONTENT_GENERATION_QUEUE)
     private readonly contentQueue: Queue<ContentGenerationJobData>,
@@ -121,5 +128,76 @@ export class GoalsService {
   async remove({ studentId, goalId }: { studentId: string; goalId: string }) {
     const goal = await this.findOne({ studentId, goalId });
     await this.goalRepository.remove(goal.id);
+  }
+
+  async getProgress({
+    studentId,
+    goalId,
+  }: {
+    studentId: string;
+    goalId: string;
+  }){
+    const goal = await this.findOne({ studentId, goalId });
+    const outline = await this.outlineRepository.findOne({
+      goal_id: goalId,
+      is_active: true,
+    });
+
+    if (!outline) {
+      throw new NotFoundException('No outline found for this goal');
+    }
+
+    const nodeIds = outline.nodes.map((n) => n.id);
+
+    const [contentItems, ktStates, attempts] = await Promise.all([
+      this.contentRepository.findByNodeIds(nodeIds),
+      this.ktRepository.findByNodeIdsAndStudent(nodeIds, studentId),
+      this.quizRepository.findLatestAttemptsByNodeIdsAndStudent(nodeIds, studentId),
+    ]);
+
+    // Index by node_id for fast lookup
+    const contentByNode = new Map(contentItems.map((c) => [c.node_id, c]));
+    const ktByNode = new Map(ktStates.map((k) => [k.node_id, k]));
+    const attemptByNode = new Map(attempts.map((a) => [a.node_id, a]));
+
+    const nodes = outline.nodes.map((node) => {
+      const content = contentByNode.get(node.id);
+      const kt = ktByNode.get(node.id);
+      const attempt = attemptByNode.get(node.id);
+
+      return {
+        nodeId: node.id,
+        title: node.title,
+        type: node.type,
+        order: node.order,
+        textStatus: content?.text_status ?? 'pending',
+        audioStatus: content?.audio_status ?? 'pending',
+        videoStatus: content?.video_status ?? 'pending',
+        quizAttempted: !!attempt,
+        lastScore: attempt?.score ?? null,
+        lastTotal: attempt?.total ?? null,
+        pKnown: kt?.p_known ?? null,
+      };
+    });
+
+    const nodesWithContent = nodes.filter((n) => n.textStatus === 'ready').length;
+    const nodesQuizzed = nodes.filter((n) => n.quizAttempted).length;
+    const ktValues = nodes.filter((n) => n.pKnown !== null).map((n) => n.pKnown!);
+    const averagePKnown =
+      ktValues.length > 0
+        ? ktValues.reduce((sum, v) => sum + v, 0) / ktValues.length
+        : null;
+
+    return {
+      goalId: goal.id,
+      topic: goal.topic,
+      nodes,
+      summary: {
+        totalNodes: nodes.length,
+        nodesWithContent,
+        nodesQuizzed,
+        averagePKnown,
+      },
+    };
   }
 }

@@ -6,30 +6,23 @@ from config import settings
 logger = logging.getLogger(__name__)
 
 
+# calls the offline chatterbox tts to generate the audio from text (tts)
 class TTSProvider:
-    """Chatterbox TTS provider. Calls the Chatterbox REST API to generate speech."""
-
     def __init__(self):
         self.base_url = settings.TTS_URL
-        self.exaggeration = settings.TTS_EXAGGERATION
 
     async def generate(self, text: str, node_id: str) -> str | None:
-        """Generate speech audio from text.
-
-        Args:
-            text: The text to convert to speech.
-            node_id: Used for the output filename.
-
-        Returns:
-            The media-relative file path, or None on failure.
-        """
         try:
-            async with httpx.AsyncClient(timeout=300.0) as client:
+            async with httpx.AsyncClient(timeout=600.0) as client:
                 response = await client.post(
-                    f"{self.base_url}/v1/audio/speech",
+                    f"{self.base_url}/tts",
                     json={
-                        "input": text[:3000],  # API max length
-                        "exaggeration": self.exaggeration,
+                        "text": text,
+                        "voice_mode": "predefined",
+                        "predefined_voice_id": "travisvn-default.mp3",
+                        "split_text": True,
+                        "chunk_size": 250,
+                        "output_format": "wav",
                     },
                 )
                 response.raise_for_status()
@@ -41,9 +34,10 @@ class TTSProvider:
             with open(filepath, "wb") as f:
                 f.write(response.content)
 
+            logger.info(f"Audio saved: {filepath} ({len(response.content)} bytes)")
             return f"/media/audio/{filename}"
         except Exception as e:
-            logger.error(f"TTS generation failed: {type(e).__name__}: {e}", exc_info=True)
+            logger.error(f"TTS generation failed: {type(e).__name__}: {e}")
             return None
 
 

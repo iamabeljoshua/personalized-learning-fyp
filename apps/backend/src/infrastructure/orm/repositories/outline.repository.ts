@@ -20,4 +20,12 @@ export class OutlineRepository {
       order: { nodes: { order: 'ASC' } },
     });
   }
+
+  async findById(id: string) {
+    return this.outlineRepo.findOne({ where: { id } });
+  }
+
+  async findNodeById(nodeId: string) {
+    return this.nodeRepo.findOne({ where: { id: nodeId } });
+  }
 }

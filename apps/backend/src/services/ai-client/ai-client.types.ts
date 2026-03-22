@@ -62,3 +62,8 @@ export interface KnowledgeTraceUpdateResponse {
   updated_state: KnowledgeState;
   needs_adaptation: boolean;
 }
+
+export interface KnowledgeTraceBatchResponse {
+  updated_state: KnowledgeState;
+  needs_adaptation: boolean;
+}

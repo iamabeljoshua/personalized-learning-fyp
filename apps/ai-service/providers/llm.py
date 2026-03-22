@@ -2,7 +2,6 @@ import json
 from abc import ABC, abstractmethod
 from typing import Any
 import httpx
-import openai
 from config import settings
 
 
@@ -51,44 +50,53 @@ class OllamaProvider(LLMProvider):
             return response.json()["message"]["content"]
 
 
-class OpenAIProvider(LLMProvider):
+class VideoLLMProvider:
+    """OpenAI-compatible LLM client for video generation.
+    Works with any provider: OpenAI, Groq, Together, local Ollama /v1, etc.
+    Configured via VIDEO_LLM_BASE_URL, VIDEO_LLM_API_KEY, VIDEO_LLM_MODEL."""
+
     def __init__(self):
-        self.client = openai.AsyncOpenAI(api_key=settings.OPENAI_API_KEY)
-        self.model = settings.LLM_MODEL if settings.LLM_PROVIDER == "openai" else "gpt-4o-mini"
+        self.base_url = settings.VIDEO_LLM_BASE_URL.rstrip("/")
+        self.api_key = settings.VIDEO_LLM_API_KEY
+        self.model = settings.VIDEO_LLM_MODEL
 
     async def generate(self, prompt: str, system: str = "") -> str:
-        messages = self._build_messages(prompt, system)
-        response = await self.client.chat.completions.create(
-            model=self.model,
-            messages=messages,
-        )
-        return response.choices[0].message.content or ""
+        return await self._call(prompt, system)
 
-    async def generate_structured(self, prompt: str, schema: dict[str, Any], system: str = "") -> dict:
-        messages = self._build_messages(prompt, system)
-        response = await self.client.chat.completions.create(
-            model=self.model,
-            messages=messages,
-            response_format={
-                "type": "json_schema",
-                "json_schema": {
-                    "name": "structured_output",
-                    "schema": schema,
-                    "strict": True,
-                },
-            },
-        )
-        return json.loads(response.choices[0].message.content or "{}")
+    async def generate_json(self, prompt: str, system: str = "") -> dict:
+        """Generate a JSON response. Works with Ollama /v1, Gemini, OpenAI, Groq, etc."""
+        raw = await self._call(prompt, system, json_mode=True)
+        return json.loads(raw)
 
-    def _build_messages(self, prompt: str, system: str = ""):
+    async def _call(self, prompt: str, system: str = "", json_mode: bool = False) -> str:
         messages = []
         if system:
             messages.append({"role": "system", "content": system})
         messages.append({"role": "user", "content": prompt})
-        return messages
+
+        body: dict[str, Any] = {
+            "model": self.model,
+            "messages": messages,
+        }
+        if json_mode:
+            body["response_format"] = {"type": "json_object"}
+
+        async with httpx.AsyncClient(timeout=300.0) as client:
+            response = await client.post(
+                f"{self.base_url}/chat/completions",
+                headers={
+                    "Authorization": f"Bearer {self.api_key}",
+                    "Content-Type": "application/json",
+                },
+                json=body,
+            )
+            response.raise_for_status()
+            return response.json()["choices"][0]["message"]["content"]
 
 
 def get_llm_provider() -> LLMProvider:
-    if settings.LLM_PROVIDER == "openai":
-        return OpenAIProvider()
     return OllamaProvider()
+
+
+def get_video_llm_provider() -> VideoLLMProvider:
+    return VideoLLMProvider()

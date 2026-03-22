@@ -24,6 +24,7 @@ import { GoalsService } from './goals.service';
 import { CreateGoalDto } from './goals.request.dto';
 import { GoalResponseDto, GoalListResponseDto } from './goals.response.dto';
 import { OutlineResponseDto } from './outline.response.dto';
+import { ProgressResponseDto } from './progress.response.dto';
 import { AuthenticationGuard } from '../auth/authentication.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import type { SessionUser } from '../../common/decorators/current-user.decorator';
@@ -92,6 +93,23 @@ export class GoalsController {
   ) {
     const outline = await this.goalsService.getOutline({ studentId: user.sub, goalId });
     return OutlineResponseDto.fromEntity(outline);
+  }
+
+  /** Get progress for a learning goal */
+  @Get(':goalId/progress')
+  @ApiOkResponse({
+    type: ProgressResponseDto,
+    description: 'Progress for this goal',
+  })
+  @ApiNotFoundResponse({ description: 'Goal or outline not found' })
+  @ApiForbiddenResponse({ description: 'Goal belongs to another student' })
+  @ApiUnauthorizedResponse({ description: 'Invalid or missing token' })
+  async getProgress(
+    @CurrentUser() user: SessionUser,
+    @Param('goalId') goalId: string,
+  ) {
+    const progress = await this.goalsService.getProgress({ studentId: user.sub, goalId });
+    return ProgressResponseDto.from(progress);
   }
 
   /** Delete a learning goal */

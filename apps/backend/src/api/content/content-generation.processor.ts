@@ -34,7 +34,7 @@ export class ContentGenerationProcessor extends WorkerHost {
     this.logger.log(`Processing content for node ${nodeId}`);
 
     try {
-      await this.contentRepository.updateStatus({ nodeId, status: 'generating' });
+      await this.contentRepository.updateMediaStatus({ nodeId, field: 'text_status', status: 'generating' });
 
       const [goal, profile, outline] = await Promise.all([
         this.goalRepository.findById(goalId),
@@ -80,11 +80,15 @@ export class ContentGenerationProcessor extends WorkerHost {
         this.logger.log(`Text generated for node ${nodeId}`);
       } catch (error) {
         this.logger.error(`Text generation failed for node ${nodeId}: ${error?.message}`);
+        await this.contentRepository.updateMediaStatus({ nodeId, field: 'text_status', status: 'failed' });
+        await this.contentRepository.updateMediaStatus({ nodeId, field: 'audio_status', status: 'skipped' });
+        await this.contentRepository.updateMediaStatus({ nodeId, field: 'video_status', status: 'skipped' });
       }
 
       // Step 2: Generate audio
       try {
         if (text) {
+          await this.contentRepository.updateMediaStatus({ nodeId, field: 'audio_status', status: 'generating' });
           const audioResult = await this.aiClient.generateContentAudio({
             text,
             nodeId,
@@ -93,42 +97,41 @@ export class ContentGenerationProcessor extends WorkerHost {
             await this.contentRepository.updateAudio({ nodeId, audioUrl: audioResult.audio_url });
             this.logger.log(`Audio generated for node ${nodeId}`);
           }
+        } else {
+          await this.contentRepository.updateMediaStatus({ nodeId, field: 'audio_status', status: 'skipped' });
         }
       } catch (error) {
         this.logger.error(`Audio generation failed for node ${nodeId}: ${error?.message}`);
+        await this.contentRepository.updateMediaStatus({ nodeId, field: 'audio_status', status: 'failed' });
       }
 
       // Step 3: Generate video (the fun part)
       try {
         if (text && currentNode) {
+          await this.contentRepository.updateMediaStatus({ nodeId, field: 'video_status', status: 'generating' });
           const videoResult = await this.aiClient.generateContentVideo({
             nodeTitle: currentNode.title,
             fullText: text,
             nodeId,
+            studentContext,
           });
           if (videoResult.video_url) {
             await this.contentRepository.updateVideo({ nodeId, videoUrl: videoResult.video_url });
             this.logger.log(`Video generated for node ${nodeId}`);
           }
+        } else {
+          await this.contentRepository.updateMediaStatus({ nodeId, field: 'video_status', status: 'skipped' });
         }
       } catch (error) {
         this.logger.error(`Video generation failed for node ${nodeId}: ${error?.message}`);
+        await this.contentRepository.updateMediaStatus({ nodeId, field: 'video_status', status: 'failed' });
       }
-
-      // Set final status based on what succeeded
-      const contentItem = await this.contentRepository.findByNodeId(nodeId);
-      if (!contentItem?.text) {
-        await this.contentRepository.updateStatus({ nodeId, status: 'failed' });
-      } else if (contentItem.video_url) {
-        await this.contentRepository.updateStatus({ nodeId, status: 'ready' });
-      } else if (contentItem.audio_url) {
-        await this.contentRepository.updateStatus({ nodeId, status: 'audio_ready' });
-      }
-      // text_ready status is already set by updateText
 
     } catch (error) {
       this.logger.error(`Content generation failed for node ${nodeId}: ${error?.message}`);
-      await this.contentRepository.updateStatus({ nodeId, status: 'failed' });
+      await this.contentRepository.updateMediaStatus({ nodeId, field: 'text_status', status: 'failed' });
+      await this.contentRepository.updateMediaStatus({ nodeId, field: 'audio_status', status: 'skipped' });
+      await this.contentRepository.updateMediaStatus({ nodeId, field: 'video_status', status: 'skipped' });
     }
   }
 }

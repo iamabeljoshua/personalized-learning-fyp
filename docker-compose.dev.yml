@@ -27,7 +27,7 @@ services:
       retries: 5
 
   manim:
-    image: manimcommunity/manim:stable
+    build: infra/manim
     container_name: manim
     entrypoint: ["tail", "-f", "/dev/null"]
     volumes:

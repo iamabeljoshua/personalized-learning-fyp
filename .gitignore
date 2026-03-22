@@ -31,6 +31,9 @@ __pycache__/
 *.pyo
 *.egg-info/
 
+# Chatterbox TTS (cloned external repo)
+infra/chatterbox-tts/
+
 # Logs
 *.log
 npm-debug.log*

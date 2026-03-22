@@ -1,10 +1,12 @@
 from fastapi import APIRouter
-from providers.llm import get_llm_provider
+from providers.llm import get_llm_provider, get_video_llm_provider
 from providers.image import get_image_provider
 from providers.tts import get_tts_provider
+from providers.manim_runner import get_manim_runner
 from processors.curriculum import CurriculumProcessor
 from processors.content import ContentProcessor
 from processors.audio import AudioProcessor
+from processors.video import VideoProcessor
 from processors.assessment import AssessmentProcessor
 from processors.knowledge_trace import KnowledgeTraceProcessor
 from schemas.outline import GenerateOutlineRequest, GenerateOutlineResponse
@@ -17,7 +19,12 @@ from schemas.content import (
     GenerateVideoResponse,
 )
 from schemas.assessment import GenerateAssessmentRequest, GenerateAssessmentResponse
-from schemas.knowledge_trace import KnowledgeTraceUpdateRequest, KnowledgeTraceUpdateResponse
+from schemas.knowledge_trace import (
+    KnowledgeTraceUpdateRequest,
+    KnowledgeTraceUpdateResponse,
+    KnowledgeTraceBatchRequest,
+    KnowledgeTraceBatchResponse,
+)
 
 router = APIRouter(prefix="/pipeline", tags=["pipeline"])
 
@@ -57,8 +64,11 @@ async def generate_content_audio(request: GenerateAudioRequest):
 
 @router.post("/content/video", response_model=GenerateVideoResponse)
 async def generate_content_video(request: GenerateVideoRequest):
-    # Manim implementation coming later
-    return GenerateVideoResponse(video_url=None)
+    llm = get_video_llm_provider()
+    tts = get_tts_provider()
+    manim = get_manim_runner()
+    processor = VideoProcessor(llm, tts, manim)
+    return await processor.generate_video(request)
 
 
 @router.post("/assessment", response_model=GenerateAssessmentResponse)
@@ -77,6 +87,15 @@ async def knowledge_trace_update(request: KnowledgeTraceUpdateRequest):
     return processor.update(
         state=request.current_state,
         is_correct=request.is_correct,
+    )
+
+
+@router.post("/knowledge-trace-batch", response_model=KnowledgeTraceBatchResponse)
+async def knowledge_trace_batch(request: KnowledgeTraceBatchRequest):
+    processor = KnowledgeTraceProcessor()
+    return processor.update_batch(
+        state=request.current_state,
+        answers=request.answers,
     )
 
 

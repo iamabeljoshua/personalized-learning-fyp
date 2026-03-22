@@ -12,6 +12,7 @@ import {
   GenerateAssessmentResponse,
   KnowledgeState,
   KnowledgeTraceUpdateResponse,
+  KnowledgeTraceBatchResponse,
 } from './ai-client.types';
 
 @Injectable()
@@ -70,10 +71,11 @@ export class AiClientService {
     });
   }
 
-  async generateContentVideo({ nodeTitle, fullText, nodeId }: {
+  async generateContentVideo({ nodeTitle, fullText, nodeId, studentContext }: {
     nodeTitle: string;
     fullText: string;
     nodeId: string;
+    studentContext: StudentContext;
   }) {
     return this.post<GenerateVideoResponse>({
       path: '/pipeline/content/video',
@@ -81,7 +83,9 @@ export class AiClientService {
         node_title: nodeTitle,
         full_text: fullText,
         node_id: nodeId,
+        student_context: studentContext,
       },
+      timeout: 300_000,
     });
   }
 
@@ -111,9 +115,22 @@ export class AiClientService {
     });
   }
 
-  private async post<T>({ path, body }: { path: string; body: unknown }): Promise<T> {
+  async updateKnowledgeTraceBatch({ currentState, answers }: {
+    currentState: KnowledgeState;
+    answers: boolean[];
+  }) {
+    return this.post<KnowledgeTraceBatchResponse>({
+      path: '/pipeline/knowledge-trace-batch',
+      body: {
+        current_state: currentState,
+        answers,
+      },
+    });
+  }
+
+  private async post<T>({ path, body, timeout }: { path: string; body: unknown; timeout?: number }): Promise<T> {
     try {
-      const response = await this.client.post<T>(path, body);
+      const response = await this.client.post<T>(path, body, timeout ? { timeout } : undefined);
       return response.data;
     } catch (error) {
       this.logger.error(`AI service call failed: ${path}`, error?.message);

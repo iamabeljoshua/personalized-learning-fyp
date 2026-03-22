@@ -1,17 +1,20 @@
 import os
 import uuid
+import base64
+import logging
 import openai
-from config import settings
 import httpx
+from config import settings
+
+logger = logging.getLogger(__name__)
 
 
 class ImageProvider:
-    """OpenAI-compatible image generation. Works with DALL-E, Nano Banana, and any provider
-    that exposes the OpenAI images API."""
-
     def __init__(self):
         self.enabled = bool(settings.IMAGE_API_KEY and settings.IMAGE_PROVIDER)
-        if self.enabled:
+        self.provider = settings.IMAGE_PROVIDER
+
+        if self.enabled and self.provider == "openai":
             kwargs = {"api_key": settings.IMAGE_API_KEY}
             if settings.IMAGE_BASE_URL:
                 kwargs["base_url"] = settings.IMAGE_BASE_URL
@@ -19,10 +22,62 @@ class ImageProvider:
             self.model = settings.IMAGE_MODEL or "dall-e-3"
 
     async def generate(self, description: str) -> str | None:
-        """Generate an image from a description. Returns the file path or None if disabled/failed."""
         if not self.enabled:
             return None
 
+        if self.provider == "google":
+            return await self._generate_google(description)
+        else:
+            return await self._generate_openai(description)
+
+    async def _generate_google(self, description: str) -> str | None:
+        try:
+            model = settings.IMAGE_MODEL or "imagen-3.0-generate-002"
+            url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateImages"
+
+            async with httpx.AsyncClient(timeout=60.0) as client:
+                response = await client.post(
+                    url,
+                    params={"key": settings.IMAGE_API_KEY},
+                    json={
+                        "prompt": description,
+                        "config": {"numberOfImages": 1},
+                    },
+                )
+                response.raise_for_status()
+                data = response.json()
+
+            # Extract base64 image
+            images = data.get("generatedImages") or data.get("images") or []
+            if not images:
+                logger.warning("Google Imagen returned no images")
+                return None
+
+            image_bytes_b64 = (
+                images[0].get("image", {}).get("imageBytes")
+                or images[0].get("imageBytes")
+            )
+            if not image_bytes_b64:
+                logger.warning("Google Imagen response missing imageBytes")
+                return None
+
+            image_data = base64.b64decode(image_bytes_b64)
+
+            filename = f"{uuid.uuid4()}.png"
+            filepath = os.path.join(settings.MEDIA_STORAGE_PATH, "images", filename)
+            os.makedirs(os.path.dirname(filepath), exist_ok=True)
+
+            with open(filepath, "wb") as f:
+                f.write(image_data)
+
+            logger.info(f"Image saved: {filepath} ({len(image_data)} bytes)")
+            return f"/media/images/{filename}"
+
+        except Exception as e:
+            logger.error(f"Google Imagen generation failed: {e}")
+            return None
+
+    async def _generate_openai(self, description: str) -> str | None:
         try:
             response = await self.client.images.generate(
                 model=self.model,
@@ -34,7 +89,6 @@ class ImageProvider:
             if not image_url:
                 return None
 
-            # Download and save locally
             async with httpx.AsyncClient() as client:
                 img_response = await client.get(image_url)
                 img_response.raise_for_status()
@@ -46,8 +100,11 @@ class ImageProvider:
             with open(filepath, "wb") as f:
                 f.write(img_response.content)
 
+            logger.info(f"Image saved: {filepath} ({len(img_response.content)} bytes)")
             return f"/media/images/{filename}"
-        except Exception:
+
+        except Exception as e:
+            logger.error(f"OpenAI image generation failed: {e}")
             return None
 
 

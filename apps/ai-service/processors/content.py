@@ -5,7 +5,11 @@ from schemas.common import StudentContext
 from schemas.content import ContentNode, GenerateTextResponse
 from .prompts import build_system_prompt
 
-
+'''
+This class is responsible for generating the actual textual content of the lesson, given an outline node and some student profile context.
+The LLM call formats the student context to personalize the lesson. Additionally, images are generated to aid the explanations, using the
+image provider (if configured).
+'''
 class ContentProcessor:
     def __init__(self, llm: LLMProvider, image_provider: ImageProvider):
         self.llm = llm
@@ -66,7 +70,7 @@ class ContentProcessor:
             if image_url:
                 replacement = f"![{description}]({image_url})"
             else:
-                replacement = f"\n> *Diagram: {description}*\n"
+                replacement = ""
             text = text.replace(f"[IMAGE: {description}]", replacement, 1)
 
         return text

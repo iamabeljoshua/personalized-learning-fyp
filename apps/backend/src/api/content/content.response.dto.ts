@@ -16,8 +16,14 @@ export class ContentResponseDto {
   /** @example "/media/video/node-id.mp4" */
   videoUrl: string | null;
 
-  /** @example "text_ready" */
-  status: string;
+  /** @example "ready" */
+  textStatus: string;
+
+  /** @example "generating" */
+  audioStatus: string;
+
+  /** @example "pending" */
+  videoStatus: string;
 
   /** @example "2026-03-21T12:00:00.000Z" */
   createdAt: Date;
@@ -32,7 +38,9 @@ export class ContentResponseDto {
       text: entity.text,
       audioUrl: entity.audio_url,
       videoUrl: entity.video_url,
-      status: entity.status,
+      textStatus: entity.text_status,
+      audioStatus: entity.audio_status,
+      videoStatus: entity.video_status,
       createdAt: entity.created_at,
       updatedAt: entity.updated_at,
     };
@@ -40,10 +48,20 @@ export class ContentResponseDto {
 }
 
 export class ContentStatusResponseDto {
-  /** @example "text_ready" */
-  status: string;
+  /** @example "ready" */
+  textStatus: string;
+
+  /** @example "generating" */
+  audioStatus: string;
+
+  /** @example "pending" */
+  videoStatus: string;
 
   public static fromEntity(entity: ContentItemEntity) {
-    return { status: entity.status };
+    return {
+      textStatus: entity.text_status,
+      audioStatus: entity.audio_status,
+      videoStatus: entity.video_status,
+    };
   }
 }

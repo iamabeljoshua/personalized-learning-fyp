@@ -35,7 +35,21 @@ class GenerateVideoRequest(BaseModel):
     node_title: str
     full_text: str
     node_id: str
+    student_context: StudentContext
 
 
 class GenerateVideoResponse(BaseModel):
     video_url: str | None = None
+
+
+# Scene plan (internal use for video pipeline)
+class SceneSection(BaseModel):
+    title: str
+    visual_description: str
+    narration_text: str
+    estimated_seconds: int
+    actual_duration: float | None = None  # filled after TTS
+
+
+class ScenePlan(BaseModel):
+    sections: list[SceneSection]
