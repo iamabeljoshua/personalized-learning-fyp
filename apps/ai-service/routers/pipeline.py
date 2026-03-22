@@ -9,6 +9,8 @@ from processors.audio import AudioProcessor
 from processors.video import VideoProcessor
 from processors.assessment import AssessmentProcessor
 from processors.knowledge_trace import KnowledgeTraceProcessor
+from processors.adaptation import AdaptationProcessor
+from schemas.adaptation import AdaptRequest, AdaptResponse
 from schemas.outline import GenerateOutlineRequest, GenerateOutlineResponse
 from schemas.content import (
     GenerateTextRequest,
@@ -99,6 +101,8 @@ async def knowledge_trace_batch(request: KnowledgeTraceBatchRequest):
     )
 
 
-@router.post("/adapt")
-async def adapt():
-    return {"message": "not implemented — LangGraph adaptation coming later"}
+@router.post("/adapt", response_model=AdaptResponse)
+async def adapt(request: AdaptRequest):
+    llm = get_llm_provider()
+    processor = AdaptationProcessor(llm)
+    return await processor.adapt(request)

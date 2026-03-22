@@ -1,4 +1,6 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
+import { InjectQueue } from '@nestjs/bullmq';
+import { Queue } from 'bullmq';
 import { QuizRepository } from '../../infrastructure/orm/repositories/quiz.repository';
 import { KnowledgeTraceRepository } from '../../infrastructure/orm/repositories/knowledge-trace.repository';
 import { OutlineRepository } from '../../infrastructure/orm/repositories/outline.repository';
@@ -6,9 +8,12 @@ import { StudentRepository } from '../../infrastructure/orm/repositories/student
 import { AiClientService } from '../../services/ai-client/ai-client.service';
 import { buildStudentContext } from '../goals/goals.util';
 import { GoalRepository } from '../../infrastructure/orm/repositories/goal.repository';
+import { ADAPTATION_QUEUE } from '../content/adaptation.constants';
 
 @Injectable()
 export class QuizzesService {
+  private readonly logger = new Logger(QuizzesService.name);
+
   constructor(
     private readonly quizRepository: QuizRepository,
     private readonly ktRepository: KnowledgeTraceRepository,
@@ -16,6 +21,7 @@ export class QuizzesService {
     private readonly studentRepository: StudentRepository,
     private readonly goalRepository: GoalRepository,
     private readonly aiClient: AiClientService,
+    @InjectQueue(ADAPTATION_QUEUE) private readonly adaptationQueue: Queue,
   ) {}
 
   async getOrGenerate(nodeId: string, studentId: string) {
@@ -123,16 +129,28 @@ export class QuizzesService {
 
     const node = await this.outlineRepository.findNodeById(nodeId);
     let nextNodeId: string | null = null;
+    let goalId: string | null = null;
     if (node) {
       const outline = await this.outlineRepository.findOne({
         id: node.outline_id,
       });
       if (outline) {
+        goalId = outline.goal_id;
         const nextNode = outline.nodes.find((n) => n.order === node.order + 1);
         if (nextNode) {
           nextNodeId = nextNode.id;
         }
       }
+    }
+
+    // Trigger adaptation asynchronously if KT score dropped below threshold
+    if (needsAdaptation && goalId) {
+      this.logger.log(`Queuing adaptation for goal ${goalId}, failing node ${nodeId}`);
+      await this.adaptationQueue.add('adapt', {
+        goalId,
+        studentId,
+        failingNodeId: nodeId,
+      });
     }
 
     return {

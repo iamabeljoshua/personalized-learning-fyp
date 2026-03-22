@@ -67,3 +67,25 @@ export interface KnowledgeTraceBatchResponse {
   updated_state: KnowledgeState;
   needs_adaptation: boolean;
 }
+
+export interface AdaptOutlineNode {
+  id: string;
+  title: string;
+  type: string;
+  order: number;
+}
+
+export interface AdaptKTState {
+  node_id: string;
+  p_known: number;
+}
+
+export interface AdaptNewNode {
+  title: string;
+  type: string;
+}
+
+export interface AdaptResponse {
+  action: 'none' | 'insert';
+  new_nodes: AdaptNewNode[] | null;
+}

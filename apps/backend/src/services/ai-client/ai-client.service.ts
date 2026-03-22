@@ -13,6 +13,9 @@ import {
   KnowledgeState,
   KnowledgeTraceUpdateResponse,
   KnowledgeTraceBatchResponse,
+  AdaptOutlineNode,
+  AdaptKTState,
+  AdaptResponse,
 } from './ai-client.types';
 
 @Injectable()
@@ -68,6 +71,7 @@ export class AiClientService {
     return this.post<GenerateAudioResponse>({
       path: '/pipeline/content/audio',
       body: { text, node_id: nodeId },
+      timeout: 600_000,  // 10 min — TTS can be slow on CPU
     });
   }
 
@@ -85,7 +89,7 @@ export class AiClientService {
         node_id: nodeId,
         student_context: studentContext,
       },
-      timeout: 300_000,
+      timeout: 1_800_000,  // 30 min — TTS + Manim render + subtitles can take very long
     });
   }
 
@@ -112,6 +116,28 @@ export class AiClientService {
         current_state: currentState,
         is_correct: isCorrect,
       },
+    });
+  }
+
+  async triggerAdaptation({ failingNodeId, failingNodeTitle, failingPKnown, outlineNodes, studentContext, ktStates }: {
+    failingNodeId: string;
+    failingNodeTitle: string;
+    failingPKnown: number;
+    outlineNodes: AdaptOutlineNode[];
+    studentContext: StudentContext;
+    ktStates: AdaptKTState[];
+  }) {
+    return this.post<AdaptResponse>({
+      path: '/pipeline/adapt',
+      body: {
+        failing_node_id: failingNodeId,
+        failing_node_title: failingNodeTitle,
+        failing_p_known: failingPKnown,
+        outline_nodes: outlineNodes,
+        student_context: studentContext,
+        kt_states: ktStates,
+      },
+      timeout: 600_000,  // 10 min — adaptation involves multiple LLM calls
     });
   }
 
