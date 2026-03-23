@@ -16,6 +16,8 @@ import {
   AdaptOutlineNode,
   AdaptKTState,
   AdaptResponse,
+  EmbedDocumentResponse,
+  EmbedTextResponse,
 } from './ai-client.types';
 
 @Injectable()
@@ -71,7 +73,7 @@ export class AiClientService {
     return this.post<GenerateAudioResponse>({
       path: '/pipeline/content/audio',
       body: { text, node_id: nodeId },
-      timeout: 600_000,  // 10 min — TTS can be slow on CPU
+      timeout: 1_800_000,  // 30 min — TTS can be slow on CPU
     });
   }
 
@@ -89,7 +91,7 @@ export class AiClientService {
         node_id: nodeId,
         student_context: studentContext,
       },
-      timeout: 1_800_000,  // 30 min — TTS + Manim render + subtitles can take very long
+      timeout: 3_000_000,  // 50 min — TTS + Manim render + subtitles can take very long
     });
   }
 
@@ -151,6 +153,21 @@ export class AiClientService {
         current_state: currentState,
         answers,
       },
+    });
+  }
+
+  async embedDocument({ filePath }: { filePath: string }) {
+    return this.post<EmbedDocumentResponse>({
+      path: '/pipeline/embed',
+      body: { file_path: filePath },
+      timeout: 300_000,  // 5 min — embedding large documents
+    });
+  }
+
+  async embedText({ text }: { text: string }) {
+    return this.post<EmbedTextResponse>({
+      path: '/pipeline/embed-text',
+      body: { text },
     });
   }
 

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import { useCreateGoal } from '../hooks/goals';
+import { useCreateGoal, useUploadDocument } from '../hooks/goals';
 import { getErrorMessage } from '../utils/get-error-message';
 import Input from '../components/input';
 import SelectCards from '../components/select-cards';
@@ -26,9 +26,11 @@ export default function NewGoalPage() {
   const [motivation, setMotivation] = useState('');
   const [preferredExplanationStyle, setPreferredExplanationStyle] = useState('');
   const [priorKnowledge, setPriorKnowledge] = useState('');
+  const [sourceFile, setSourceFile] = useState<File | null>(null);
   const [error, setError] = useState('');
 
   const { mutateAsync: createGoal, isPending } = useCreateGoal();
+  const { mutateAsync: uploadDocument } = useUploadDocument();
 
   const canSubmit = topic.trim() && motivation && preferredExplanationStyle;
 
@@ -43,7 +45,19 @@ export default function NewGoalPage() {
         preferredExplanationStyle,
         ...(priorKnowledge.trim() && { priorKnowledge: priorKnowledge.trim() }),
       });
-      toast.success('Learning goal created');
+
+      // Upload source document if provided
+      if (sourceFile) {
+        try {
+          await uploadDocument({ goalId: goal.id, file: sourceFile });
+          toast.success('Learning goal created with source document');
+        } catch {
+          toast.success('Goal created, but document upload failed');
+        }
+      } else {
+        toast.success('Learning goal created');
+      }
+
       navigate(`/goals/${goal.id}`);
     } catch (err) {
       setError(getErrorMessage(err));
@@ -104,6 +118,34 @@ export default function NewGoalPage() {
             className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:border-gray-900 focus:outline-none"
             placeholder="e.g. I know basic algebra and Newton's laws"
           />
+        </div>
+
+        <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+          <label htmlFor="sourceFile" className="mb-1.5 block text-sm font-medium text-gray-700">
+            Upload a source document <span className="font-normal text-gray-400">(optional, max 50MB)</span>
+          </label>
+          <p className="mb-3 text-xs text-gray-400">
+            PDF, TXT, or Markdown. Content will be used to ground your lessons in this material.
+          </p>
+          <input
+            id="sourceFile"
+            type="file"
+            accept=".pdf,.txt,.md"
+            onChange={(e) => {
+              const file = e.target.files?.[0] ?? null;
+              if (file && file.size > 50 * 1024 * 1024) {
+                setError('File must be under 50MB');
+                setSourceFile(null);
+                return;
+              }
+              setError('');
+              setSourceFile(file);
+            }}
+            className="w-full text-sm text-gray-500 file:mr-4 file:rounded-md file:border-0 file:bg-gray-100 file:px-4 file:py-2 file:text-sm file:font-medium file:text-gray-700 hover:file:bg-gray-200"
+          />
+          {sourceFile && (
+            <p className="mt-2 text-xs text-gray-500">Selected: {sourceFile.name}</p>
+          )}
         </div>
 
         {error && (

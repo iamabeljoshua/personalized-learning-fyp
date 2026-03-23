@@ -5,6 +5,7 @@ import { ContentRepository } from '../../infrastructure/orm/repositories/content
 import { OutlineRepository } from '../../infrastructure/orm/repositories/outline.repository';
 import { GoalRepository } from '../../infrastructure/orm/repositories/goal.repository';
 import { StudentRepository } from '../../infrastructure/orm/repositories/student.repository';
+import { DocumentRepository } from '../../infrastructure/orm/repositories/document.repository';
 import { AiClientService } from '../../services/ai-client/ai-client.service';
 import { buildStudentContext } from '../goals/goals.util';
 import { CONTENT_GENERATION_QUEUE } from './content.constants';
@@ -24,6 +25,7 @@ export class ContentGenerationProcessor extends WorkerHost {
     private readonly outlineRepository: OutlineRepository,
     private readonly goalRepository: GoalRepository,
     private readonly studentRepository: StudentRepository,
+    private readonly documentRepository: DocumentRepository,
     private readonly aiClient: AiClientService,
   ) {
     super();
@@ -63,6 +65,20 @@ export class ContentGenerationProcessor extends WorkerHost {
         .filter((n) => n.order < (currentNode?.order ?? 0))
         .map((n) => n.title);
 
+      // Fetch RAG chunks if this goal has uploaded documents
+      let ragChunks: string[] = [];
+      try {
+        const hasDocs = await this.documentRepository.hasDocuments(goalId);
+        if (hasDocs) {
+          const queryText = `${currentNode?.title ?? ''} ${outlineContext.join(' ')}`;
+          const { embedding } = await this.aiClient.embedText({ text: queryText });
+          ragChunks = await this.documentRepository.findSimilarChunks(goalId, embedding, 5);
+          this.logger.log(`RAG: retrieved ${ragChunks.length} chunks for node ${nodeId}`);
+        }
+      } catch (error) {
+        this.logger.warn(`RAG retrieval failed for node ${nodeId}: ${error?.message}`);
+      }
+
       // Step 1: Generate text
       let text: string | null = null;
       try {
@@ -74,6 +90,7 @@ export class ContentGenerationProcessor extends WorkerHost {
           },
           studentContext,
           outlineContext,
+          ragChunks,
         });
         text = textResult.text;
         await this.contentRepository.updateText({ nodeId, text });

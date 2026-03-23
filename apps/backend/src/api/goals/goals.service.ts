@@ -12,6 +12,7 @@ import { OutlineRepository } from '../../infrastructure/orm/repositories/outline
 import { ContentRepository } from '../../infrastructure/orm/repositories/content.repository';
 import { KnowledgeTraceRepository } from '../../infrastructure/orm/repositories/knowledge-trace.repository';
 import { QuizRepository } from '../../infrastructure/orm/repositories/quiz.repository';
+import { DocumentRepository } from '../../infrastructure/orm/repositories/document.repository';
 import { AiClientService } from '../../services/ai-client/ai-client.service';
 import { CreateGoalDto } from './goals.request.dto';
 import { buildStudentContext } from './goals.util';
@@ -28,6 +29,7 @@ export class GoalsService {
     private readonly contentRepository: ContentRepository,
     private readonly ktRepository: KnowledgeTraceRepository,
     private readonly quizRepository: QuizRepository,
+    private readonly documentRepository: DocumentRepository,
     private readonly aiClient: AiClientService,
     @InjectQueue(CONTENT_GENERATION_QUEUE)
     private readonly contentQueue: Queue<ContentGenerationJobData>,
@@ -127,6 +129,22 @@ export class GoalsService {
 
   async remove({ studentId, goalId }: { studentId: string; goalId: string }) {
     const goal = await this.findOne({ studentId, goalId });
+
+    // Remove any pending/waiting jobs for this goal from the content queue
+    const waitingJobs = await this.contentQueue.getJobs(['waiting', 'delayed', 'active']);
+    for (const job of waitingJobs) {
+      if (job.data?.goalId === goalId) {
+        try {
+          await job.remove();
+        } catch {
+          // Job may have already been processed
+        }
+      }
+    }
+
+    // Clean up documents and embeddings
+    await this.documentRepository.deleteByGoalId(goalId);
+
     await this.goalRepository.remove(goal.id);
   }
 
@@ -198,6 +216,48 @@ export class GoalsService {
         nodesQuizzed,
         averagePKnown,
       },
+    };
+  }
+
+  async uploadDocument({
+    studentId,
+    goalId,
+    file,
+  }: {
+    studentId: string;
+    goalId: string;
+    file: Express.Multer.File;
+  }) {
+    const goal = await this.findOne({ studentId, goalId });
+
+    // Save file to media/documents/{goalId}/
+    const fs = await import('fs/promises');
+    const path = await import('path');
+    const mediaPath = process.env.MEDIA_STORAGE_PATH || './media';
+    const docDir = path.join(mediaPath, 'documents', goalId);
+    await fs.mkdir(docDir, { recursive: true });
+
+    const filePath = path.join(docDir, file.originalname);
+    await fs.writeFile(filePath, file.buffer);
+
+    // Save document metadata
+    await this.documentRepository.saveDocument(goalId, file.originalname, filePath);
+
+    // Call AI service to chunk + embed
+    const embedResult = await this.aiClient.embedDocument({ filePath });
+
+    // Store chunks + embeddings in pgvector
+    if (embedResult.chunks.length > 0) {
+      await this.documentRepository.storeEmbeddings(
+        goalId,
+        embedResult.chunks,
+        embedResult.embeddings,
+      );
+    }
+
+    return {
+      filename: file.originalname,
+      chunks: embedResult.chunks.length,
     };
   }
 }

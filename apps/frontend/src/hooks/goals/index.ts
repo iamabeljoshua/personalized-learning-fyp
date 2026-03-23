@@ -55,3 +55,13 @@ export const useDeleteGoal = () => {
     mutationFn: (goalId: string) => del(`/goals/${goalId}`),
   });
 };
+
+export const useUploadDocument = () => {
+  return useMutation({
+    mutationFn: ({ goalId, file }: { goalId: string; file: File }) => {
+      const formData = new FormData();
+      formData.append('file', file);
+      return post<{ filename: string; chunks: number }>(`/goals/${goalId}/documents`, formData);
+    },
+  });
+};

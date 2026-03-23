@@ -1,6 +1,9 @@
-import { Link, useParams } from 'react-router-dom';
-import { useGoal, useOutline } from '../hooks/goals';
+import { useState } from 'react';
+import { Link, useParams, useNavigate } from 'react-router-dom';
+import toast from 'react-hot-toast';
+import { useGoal, useOutline, useDeleteGoal } from '../hooks/goals';
 import Spinner from '../components/spinner';
+import ConfirmModal from '../components/confirm-modal';
 import type { OutlineNode } from '../types';
 
 const motivationLabels: Record<string, string> = {
@@ -47,8 +50,11 @@ function NodeRow({ node, index }: { node: OutlineNode; index: number }) {
 
 export default function GoalPage() {
   const { goalId } = useParams<{ goalId: string }>();
+  const navigate = useNavigate();
   const { data: goal, isLoading: goalLoading, isError: goalError } = useGoal(goalId!);
   const { data: outline, isLoading: outlineLoading } = useOutline(goalId!);
+  const { mutateAsync: deleteGoal, isPending: isDeleting } = useDeleteGoal();
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   if (goalLoading || outlineLoading) return <Spinner />;
 
@@ -71,12 +77,41 @@ export default function GoalPage() {
         &larr; Back to dashboard
       </Link>
 
-      <div className="mt-4 flex items-center gap-3">
-        <h1 className="text-xl font-semibold text-gray-900">{goal.topic}</h1>
-        <span className="rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-600">
-          {motivationLabels[goal.motivation] || goal.motivation}
-        </span>
+      <div className="mt-4 flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <h1 className="text-xl font-semibold text-gray-900">{goal.topic}</h1>
+          <span className="rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-600">
+            {motivationLabels[goal.motivation] || goal.motivation}
+          </span>
+        </div>
+        <button
+          onClick={() => setShowDeleteConfirm(true)}
+          className="rounded-md px-3 py-1.5 text-sm text-red-600 hover:bg-red-50"
+        >
+          Delete
+        </button>
       </div>
+
+      {showDeleteConfirm && (
+        <ConfirmModal
+          title="Delete learning goal?"
+          message={`This will permanently delete "${goal.topic}" and all its content, quizzes, and progress. This cannot be undone.`}
+          confirmLabel="Delete"
+          variant="danger"
+          isLoading={isDeleting}
+          onCancel={() => setShowDeleteConfirm(false)}
+          onConfirm={async () => {
+            try {
+              await deleteGoal(goalId!);
+              toast.success('Learning goal deleted');
+              navigate('/');
+            } catch {
+              toast.error('Failed to delete goal');
+              setShowDeleteConfirm(false);
+            }
+          }}
+        />
+      )}
 
       {goal.priorKnowledge && (
         <p className="mt-2 text-sm text-gray-500">{goal.priorKnowledge}</p>

@@ -7,8 +7,11 @@ import {
   HttpStatus,
   Param,
   Post,
+  UploadedFile,
   UseGuards,
+  UseInterceptors,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import {
   ApiBadRequestResponse,
   ApiBearerAuth,
@@ -124,5 +127,20 @@ export class GoalsController {
     @Param('goalId') goalId: string,
   ) {
     await this.goalsService.remove({studentId: user.sub, goalId});
+  }
+
+  /** Upload a source document for RAG grounding */
+  @Post(':goalId/documents')
+  @UseInterceptors(FileInterceptor('file'))
+  @ApiCreatedResponse({ description: 'Document uploaded and embedded' })
+  @ApiNotFoundResponse({ description: 'Goal not found' })
+  @ApiForbiddenResponse({ description: 'Goal belongs to another student' })
+  @ApiUnauthorizedResponse({ description: 'Invalid or missing token' })
+  async uploadDocument(
+    @CurrentUser() user: SessionUser,
+    @Param('goalId') goalId: string,
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    return this.goalsService.uploadDocument({ studentId: user.sub, goalId, file });
   }
 }

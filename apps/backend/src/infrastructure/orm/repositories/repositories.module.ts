@@ -10,12 +10,15 @@ import { QuizEntity } from '../entities/quiz.entity';
 import { QuestionEntity } from '../entities/question.entity';
 import { QuizAttemptEntity } from '../entities/quiz-attempt.entity';
 import { KnowledgeTraceEntity } from '../entities/knowledge-trace.entity';
+import { DocumentEntity } from '../entities/document.entity';
+import { DocumentEmbeddingEntity } from '../entities/document-embedding.entity';
 import { StudentRepository } from './student.repository';
 import { GoalRepository } from './goal.repository';
 import { OutlineRepository } from './outline.repository';
 import { ContentRepository } from './content.repository';
 import { QuizRepository } from './quiz.repository';
 import { KnowledgeTraceRepository } from './knowledge-trace.repository';
+import { DocumentRepository } from './document.repository';
 
 @Module({
   imports: [
@@ -30,6 +33,8 @@ import { KnowledgeTraceRepository } from './knowledge-trace.repository';
       QuestionEntity,
       QuizAttemptEntity,
       KnowledgeTraceEntity,
+      DocumentEntity,
+      DocumentEmbeddingEntity,
     ]),
   ],
   providers: [
@@ -39,6 +44,7 @@ import { KnowledgeTraceRepository } from './knowledge-trace.repository';
     ContentRepository,
     QuizRepository,
     KnowledgeTraceRepository,
+    DocumentRepository,
   ],
   exports: [
     StudentRepository,
@@ -47,6 +53,7 @@ import { KnowledgeTraceRepository } from './knowledge-trace.repository';
     ContentRepository,
     QuizRepository,
     KnowledgeTraceRepository,
+    DocumentRepository,
   ],
 })
 export class RepositoriesModule {}

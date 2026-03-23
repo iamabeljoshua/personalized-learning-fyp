@@ -327,7 +327,7 @@ class VideoProcessor:
         header += "WrapStyle: 0\n\n"
         header += "[V4+ Styles]\n"
         header += "Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding\n"
-        header += "Style: Default,Arial,22,&H00FFFFFF,&H000000FF,&H00000000,&H96000000,0,0,0,0,100,100,0,0,3,1,0,2,20,20,30,1\n\n"
+        header += "Style: Default,Arial,44,&H00FFFFFF,&H000000FF,&H00000000,&H96000000,0,0,0,0,100,100,0,0,3,2,0,2,20,20,30,1\n\n"
         header += "[Events]\n"
         header += "Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text\n"
 

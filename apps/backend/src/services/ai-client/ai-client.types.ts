@@ -89,3 +89,12 @@ export interface AdaptResponse {
   action: 'none' | 'insert';
   new_nodes: AdaptNewNode[] | null;
 }
+
+export interface EmbedDocumentResponse {
+  chunks: string[];
+  embeddings: number[][];
+}
+
+export interface EmbedTextResponse {
+  embedding: number[];
+}
