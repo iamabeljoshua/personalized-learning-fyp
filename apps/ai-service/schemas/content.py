@@ -47,8 +47,17 @@ class SceneSection(BaseModel):
     title: str
     visual_description: str
     narration_text: str
-    estimated_seconds: int
+    estimated_seconds: int = 15
     actual_duration: float | None = None  # filled after TTS
+
+    # LLMs sometimes use alternate key names — normalize them
+    def __init__(self, **data):
+        # accept "narration" as an alias for "narration_text"
+        if "narration_text" not in data and "narration" in data:
+            data["narration_text"] = data.pop("narration")
+        if "narration_text" not in data and "visual_description" in data:
+            data["narration_text"] = data["visual_description"]
+        super().__init__(**data)
 
 
 class ScenePlan(BaseModel):

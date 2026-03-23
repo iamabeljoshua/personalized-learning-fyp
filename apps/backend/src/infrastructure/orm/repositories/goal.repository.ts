@@ -94,6 +94,44 @@ export class GoalRepository {
   }
 
   async remove(id: string) {
-    await this.goalRepo.delete(id);
+    // Delete the full dependency chain in reverse order
+    // goal → outlines → nodes → (content_items, quizzes → questions/attempts, kt_traces)
+    await this.dataSource.transaction(async (manager) => {
+      // Get all outline IDs for this goal
+      const outlines = await manager.find(OutlineEntity, { where: { goal_id: id }, relations: ['nodes'] });
+      const nodeIds = outlines.flatMap((o) => o.nodes.map((n) => n.id));
+
+      if (nodeIds.length > 0) {
+        // Delete quiz-related data (attempts → questions → quizzes)
+        await manager.query(
+          `DELETE FROM quiz_attempts WHERE quiz_id IN (SELECT id FROM quizzes WHERE node_id = ANY($1))`,
+          [nodeIds],
+        );
+        await manager.query(
+          `DELETE FROM questions WHERE quiz_id IN (SELECT id FROM quizzes WHERE node_id = ANY($1))`,
+          [nodeIds],
+        );
+        await manager.query(`DELETE FROM quizzes WHERE node_id = ANY($1)`, [nodeIds]);
+
+        // Delete knowledge traces
+        await manager.query(`DELETE FROM knowledge_traces WHERE node_id = ANY($1)`, [nodeIds]);
+
+        // Delete content items
+        await manager.query(`DELETE FROM content_items WHERE node_id = ANY($1)`, [nodeIds]);
+
+        // Delete outline nodes
+        await manager.query(`DELETE FROM outline_nodes WHERE id = ANY($1)`, [nodeIds]);
+      }
+
+      // Delete outlines
+      await manager.query(`DELETE FROM outlines WHERE goal_id = $1`, [id]);
+
+      // Delete documents + embeddings (already has CASCADE but be explicit)
+      await manager.query(`DELETE FROM document_embeddings WHERE goal_id = $1`, [id]);
+      await manager.query(`DELETE FROM documents WHERE goal_id = $1`, [id]);
+
+      // Finally delete the goal
+      await manager.query(`DELETE FROM learning_goals WHERE id = $1`, [id]);
+    });
   }
 }

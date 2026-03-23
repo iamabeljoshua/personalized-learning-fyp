@@ -120,7 +120,11 @@ export default function LearnPage() {
         {activeTab === 'text' && (
           content.text ? (
             <div className="prose prose-gray max-w-none">
-              <ReactMarkdown>{content.text}</ReactMarkdown>
+              <ReactMarkdown components={{
+                img: ({ node, ...props }) => (
+                  <img {...props} style={{ maxWidth: 500, maxHeight: 500 }} />
+                ),
+              }}>{content.text}</ReactMarkdown>
             </div>
           ) : (
             <MediaUnavailable label="Text content" />

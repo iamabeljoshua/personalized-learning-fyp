@@ -5,8 +5,8 @@ from config import settings
 
 logger = logging.getLogger(__name__)
 
-RENDER_TIMEOUT = 120
-FFMPEG_TIMEOUT = 60
+RENDER_TIMEOUT = 600
+FFMPEG_TIMEOUT = 120
 DOCKER_SOCKET = "/var/run/docker.sock"
 
 

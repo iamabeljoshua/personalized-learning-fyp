@@ -33,32 +33,29 @@ class ImageProvider:
     async def _generate_google(self, description: str) -> str | None:
         try:
             model = settings.IMAGE_MODEL or "imagen-3.0-generate-002"
-            url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateImages"
+            url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:predict"
 
             async with httpx.AsyncClient(timeout=60.0) as client:
                 response = await client.post(
                     url,
-                    params={"key": settings.IMAGE_API_KEY},
+                    headers={"x-goog-api-key": settings.IMAGE_API_KEY},
                     json={
-                        "prompt": description,
-                        "config": {"numberOfImages": 1},
+                        "instances": [{"prompt": description}],
+                        "parameters": {"sampleCount": 1},
                     },
                 )
                 response.raise_for_status()
                 data = response.json()
 
-            # Extract base64 image
-            images = data.get("generatedImages") or data.get("images") or []
-            if not images:
-                logger.warning("Google Imagen returned no images")
+            # Extract base64 image from predictions
+            predictions = data.get("predictions") or []
+            if not predictions:
+                logger.warning("Google Imagen returned no predictions")
                 return None
 
-            image_bytes_b64 = (
-                images[0].get("image", {}).get("imageBytes")
-                or images[0].get("imageBytes")
-            )
+            image_bytes_b64 = predictions[0].get("bytesBase64Encoded")
             if not image_bytes_b64:
-                logger.warning("Google Imagen response missing imageBytes")
+                logger.warning("Google Imagen response missing bytesBase64Encoded")
                 return None
 
             image_data = base64.b64decode(image_bytes_b64)

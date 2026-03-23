@@ -13,7 +13,7 @@ class TTSProvider:
 
     async def generate(self, text: str, node_id: str) -> str | None:
         try:
-            async with httpx.AsyncClient(timeout=600.0) as client:
+            async with httpx.AsyncClient(timeout=1800.0) as client:
                 response = await client.post(
                     f"{self.base_url}/tts",
                     json={
