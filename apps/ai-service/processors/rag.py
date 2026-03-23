@@ -28,7 +28,6 @@ class RAGProcessor:
         )
 
     def embed_document(self, file_path: str) -> EmbedDocumentResponse:
-        """Read a document, chunk it, and embed each chunk."""
         text = self._read_file(file_path)
         if not text.strip():
             logger.warning(f"Empty document: {file_path}")
@@ -43,7 +42,6 @@ class RAGProcessor:
         return EmbedDocumentResponse(chunks=chunks, embeddings=embeddings)
 
     def embed_text(self, text: str) -> EmbedTextResponse:
-        """Embed a single text string (for query vectors)."""
         model = _get_embed_model()
         embedding = model.encode(text).tolist()
         return EmbedTextResponse(embedding=embedding)
