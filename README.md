@@ -8,7 +8,8 @@ Students complete a quick onboarding (learning style, interests, etc), then crea
 
 The system is able to generate multi-media (text, audio, video) learning content for students, an example is the animated explainer video below explaining Newton's Laws of Motion:
 
-https://github.com/iamabeljoshua/personalized-learning-fyp/raw/main/generated/law-of-motion.mp4
+https://github.com/user-attachments/assets/1973c64b-a115-4c8c-ace0-6833f8957791
+
 
 ## Prerequisites
 
