@@ -4,6 +4,12 @@ An AI-powered personalised tutoring system. Built as my BSc Final Year Project a
 
 Students complete a quick onboarding (learning style, interests, etc), then create learning goals on any topic. The system generates a full adaptive curriculum with text lessons, audio narration, animated video explainers, and quizzes - all personalised to who they are.
 
+## Generated Example
+
+The system is able to generate multi-media (text, audio, video) learning content for students, an example is the animated explainer video below explaining Newton's Laws of Motion:
+
+https://github.com/iamabeljoshua/personalized-learning-fyp/raw/main/generated/law-of-motion.mp4
+
 ## Prerequisites
 
 - Node.js 22+
